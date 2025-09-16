@@ -1,8 +1,9 @@
 import asyncio
 import json
 import os
+from importlib import import_module
 from pathlib import Path
-from typing import Callable, Protocol
+from typing import Callable, Protocol, cast
 
 import openhands.agenthub  # noqa F401 (we import this to get the agents registered)
 import openhands.cli.suppress_warnings  # noqa: F401
@@ -46,6 +47,40 @@ class FakeUserResponseFunc(Protocol):
         encapsulate_solution: bool = False,
         try_parse: Callable[[Action | None], str] | None = None,
     ) -> str: ...
+
+
+def _load_callable(path: str, description: str) -> Callable:
+    """Load a callable from a dotted path or module:path string."""
+
+    module_path: str
+    attr: str
+    if ':' in path:
+        module_path, attr = path.split(':', 1)
+    else:
+        if '.' not in path:
+            raise ValueError(
+                f'{description} "{path}" must be in "module:function" format.'
+            )
+        module_path, attr = path.rsplit('.', 1)
+
+    try:
+        module = import_module(module_path)
+    except ModuleNotFoundError as exc:
+        raise ValueError(
+            f'Failed to import module "{module_path}" for {description}'
+        ) from exc
+
+    try:
+        callback = getattr(module, attr)
+    except AttributeError as exc:
+        raise ValueError(
+            f'{description} "{path}" does not define "{attr}"'
+        ) from exc
+
+    if not callable(callback):
+        raise TypeError(f'{description} "{path}" is not callable')
+
+    return callback
 
 
 async def run_controller(
@@ -288,6 +323,26 @@ if __name__ == '__main__':
 
     config: OpenHandsConfig = setup_config_from_args(args)
 
+    # Headless workflows should not require user confirmation for actions
+    config.security.confirmation_mode = False
+
+    if args.no_auto_continue and args.auto_response_callback:
+        raise ValueError(
+            '--auto-response-callback cannot be used together with --no-auto-continue'
+        )
+
+    fake_user_response_fn: FakeUserResponseFunc | None = None
+    if not args.no_auto_continue:
+        fake_user_response_fn = auto_continue_response
+        if args.auto_response_callback:
+            callback = cast(
+                FakeUserResponseFunc,
+                _load_callable(
+                    args.auto_response_callback, 'Auto-response callback'
+                ),
+            )
+            fake_user_response_fn = callback
+
     # Read task from file, CLI args, or stdin
     task_str = read_task(args, config.cli_multiline_input)
 
@@ -308,13 +363,22 @@ if __name__ == '__main__':
     session_name = args.name
     sid = generate_sid(config, session_name)
 
-    asyncio.run(
+    final_state = asyncio.run(
         run_controller(
             config=config,
             initial_user_action=initial_user_action,
             sid=sid,
-            fake_user_response_fn=None
-            if args.no_auto_continue
-            else auto_continue_response,
+            fake_user_response_fn=fake_user_response_fn,
         )
     )
+
+    if args.result_callback:
+        result_callback = _load_callable(args.result_callback, 'Result callback')
+        if final_state is None:
+            logger.warning(
+                'Result callback specified but agent did not return a final state.'
+            )
+        else:
+            result = result_callback(final_state)
+            if result is not None:
+                print(result)

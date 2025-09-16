@@ -140,6 +140,18 @@ def add_headless_specific_arguments(parser: argparse.ArgumentParser) -> None:
         type=str,
         default=None,
     )
+    parser.add_argument(
+        '--auto-response-callback',
+        help='Python path to a callable that generates automated user responses in headless mode (e.g. "module.submodule:function")',
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        '--result-callback',
+        help='Python path to a callable that receives the final agent State and returns a string to output',
+        type=str,
+        default=None,
+    )
 
 
 def get_cli_parser() -> argparse.ArgumentParser:

@@ -42,3 +42,13 @@ try:
     __version__ = get_version()
 except Exception:
     __version__ = 'unknown'
+
+def __getattr__(name: str):
+    if name == 'call_agent':
+        from openhands.api import call_agent as _call_agent
+
+        return _call_agent
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+__all__ = ['__version__', 'get_version', 'call_agent']

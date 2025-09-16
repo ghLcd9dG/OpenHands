@@ -20,6 +20,8 @@ def test_headless_parser_default_values():
     assert args.name == ''
     assert not args.no_auto_continue
     assert args.selected_repo is None
+    assert args.auto_response_callback is None
+    assert args.result_callback is None
 
 
 def test_evaluation_parser_default_values():
@@ -40,6 +42,8 @@ def test_evaluation_parser_default_values():
     assert args.name == ''
     assert not args.no_auto_continue
     assert args.selected_repo is None
+    assert args.auto_response_callback is None
+    assert args.result_callback is None
 
 
 def test_evaluation_parser_custom_values():
@@ -72,10 +76,14 @@ def test_evaluation_parser_custom_values():
             '-n',
             'test_session',
             '--no-auto-continue',
-            '--selected-repo',
-            'owner/repo',
-        ]
-    )
+        '--selected-repo',
+        'owner/repo',
+        '--auto-response-callback',
+        'module:func',
+        '--result-callback',
+        'pkg.mod:handle',
+    ]
+)
 
     assert args.directory == '/path/to/dir'
     assert args.task == 'custom task'
@@ -92,6 +100,8 @@ def test_evaluation_parser_custom_values():
     assert args.no_auto_continue
     assert args.version
     assert args.selected_repo == 'owner/repo'
+    assert args.auto_response_callback == 'module:func'
+    assert args.result_callback == 'pkg.mod:handle'
 
 
 def test_parser_file_overrides_task():
@@ -152,6 +162,8 @@ def test_headless_parser_help_message(capsys):
         '--no-auto-continue',
         '--selected-repo SELECTED_REPO',
         '--log-level LOG_LEVEL',
+        '--auto-response-callback AUTO_RESPONSE_CALLBACK',
+        '--result-callback RESULT_CALLBACK',
     ]
 
     for element in expected_elements:
