@@ -383,11 +383,17 @@ openhands_logger.addFilter(SensitiveDataFilter(openhands_logger.name))
 openhands_logger.propagate = False
 openhands_logger.debug('Logging initialized')
 
-LOG_DIR = os.path.join(
-    # parent dir of openhands/core (i.e., root of the repo)
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    'logs',
-)
+_configured_log_dir = os.getenv('OPENHANDS_LOG_DIR')
+if _configured_log_dir:
+    LOG_DIR = os.path.abspath(os.path.expanduser(_configured_log_dir))
+else:
+    LOG_DIR = os.path.join(
+        # parent dir of openhands/core (i.e., root of the repo)
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        'logs',
+    )
+
+os.makedirs(LOG_DIR, exist_ok=True)
 
 if LOG_TO_FILE:
     openhands_logger.addHandler(
